@@ -8,18 +8,18 @@ st.set_page_config(page_title="RH Performance Dashboard", layout="wide")
 
 st.title("RH Performance Dashboard")
 
-# ---------------------------
-# SIDEBAR
-# ---------------------------
+# --------------------------
+# SIDEBAR NAVIGATION
+# --------------------------
 
 page = st.sidebar.radio(
 "Navigation",
 ["Overall Dashboard","API Performance","GraphQL Performance","Frontend Metrics"]
 )
 
-# ---------------------------
+# --------------------------
 # LOAD DATA
-# ---------------------------
+# --------------------------
 
 folder = os.path.join(os.path.dirname(__file__), "reports")
 
@@ -35,15 +35,15 @@ api_df.columns = api_df.columns.str.strip()
 graphql_df.columns = graphql_df.columns.str.strip()
 ui_df.columns = ui_df.columns.str.strip()
 
-# ---------------------------
-# GAUGE
-# ---------------------------
+# --------------------------
+# FUNCTIONS
+# --------------------------
 
-def gauge(title,val):
+def gauge(title,value):
 
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
-        value=val,
+        value=value,
         title={'text':title},
         gauge={'axis':{'range':[0,100]}}
     ))
@@ -55,11 +55,11 @@ def regression(curr,prev):
 
     return round(((curr-prev)/prev)*100,2)
 
-# ---------------------------
+# =====================================================
 # OVERALL DASHBOARD
-# ---------------------------
+# =====================================================
 
-if page=="Overall Dashboard":
+if page == "Overall Dashboard":
 
     st.header("System Overview")
 
@@ -72,151 +72,251 @@ if page=="Overall Dashboard":
 
     st.divider()
 
-    tabs = st.tabs(["API","GraphQL","Frontend"])
+    # -------- API --------
 
-    # ---------------- API ---------------- #
+    st.subheader("API Latency")
+
+    fig = px.bar(api_df,x="APIs",y="95% Line",color="95% Line")
+    st.plotly_chart(fig,use_container_width=True)
+
+    st.dataframe(api_df,use_container_width=True)
+
+    if len(api_files) > 1:
+
+        prev_api = pd.read_csv(os.path.join(folder,api_files[-2]))
+
+        rows=[]
+
+        for i,row in api_df.iterrows():
+
+            api=row["APIs"]
+
+            prev_row=prev_api[prev_api["APIs"]==api]
+
+            if not prev_row.empty:
+
+                prev=prev_row.iloc[0]["95% Line"]
+                curr=row["95% Line"]
+
+                rows.append({
+                    "API":api,
+                    "Change %":regression(curr,prev)
+                })
+
+        reg_df=pd.DataFrame(rows)
+
+        fig = px.bar(reg_df,x="API",y="Change %",title="API Regression %")
+        st.plotly_chart(fig,use_container_width=True)
+
+        st.dataframe(reg_df,use_container_width=True)
+
+    # -------- GRAPHQL --------
+
+    st.subheader("GraphQL Latency")
+
+    fig = px.bar(graphql_df,x="GraphQL (BFF)",y="95% Line",color="95% Line")
+    st.plotly_chart(fig,use_container_width=True)
+
+    st.dataframe(graphql_df,use_container_width=True)
+
+    if len(graphql_files) > 1:
+
+        prev = pd.read_csv(os.path.join(folder,graphql_files[-2]))
+
+        rows=[]
+
+        for i,row in graphql_df.iterrows():
+
+            q=row["GraphQL (BFF)"]
+
+            prev_row=prev[prev["GraphQL (BFF)"]==q]
+
+            if not prev_row.empty:
+
+                prev_val=prev_row.iloc[0]["95% Line"]
+                curr=row["95% Line"]
+
+                rows.append({
+                    "Query":q,
+                    "Change %":regression(curr,prev_val)
+                })
+
+        reg_df=pd.DataFrame(rows)
+
+        fig = px.bar(reg_df,x="Query",y="Change %",title="GraphQL Regression %")
+        st.plotly_chart(fig,use_container_width=True)
+
+        st.dataframe(reg_df,use_container_width=True)
+
+    # -------- FRONTEND --------
+
+    st.subheader("Frontend Performance")
+
+    col1,col2,col3,col4 = st.columns(4)
+
+    for i,row in ui_df.iterrows():
+
+        if i==0: col1.plotly_chart(gauge(row["Pages"],row["Performance Score"]),use_container_width=True)
+        if i==1: col2.plotly_chart(gauge(row["Pages"],row["Performance Score"]),use_container_width=True)
+        if i==2: col3.plotly_chart(gauge(row["Pages"],row["Performance Score"]),use_container_width=True)
+        if i==3: col4.plotly_chart(gauge(row["Pages"],row["Performance Score"]),use_container_width=True)
+
+    st.subheader("SEO Scores")
+
+    col1,col2,col3,col4 = st.columns(4)
+
+    for i,row in ui_df.iterrows():
+
+        if i==0: col1.plotly_chart(gauge(row["Pages"]+" SEO",row["SEO Score"]),use_container_width=True)
+        if i==1: col2.plotly_chart(gauge(row["Pages"]+" SEO",row["SEO Score"]),use_container_width=True)
+        if i==2: col3.plotly_chart(gauge(row["Pages"]+" SEO",row["SEO Score"]),use_container_width=True)
+        if i==3: col4.plotly_chart(gauge(row["Pages"]+" SEO",row["SEO Score"]),use_container_width=True)
+
+    st.dataframe(ui_df,use_container_width=True)
+
+# =====================================================
+# API PAGE
+# =====================================================
+
+elif page == "API Performance":
+
+    st.header("API Performance")
+
+    tabs = st.tabs(["Charts","Data","Regression"])
 
     with tabs[0]:
 
-        tab1,tab2,tab3 = st.tabs(["Charts","Data","Regression"])
+        fig = px.bar(api_df,x="APIs",y=["Average","95% Line","99% Line"],barmode="group")
+        st.plotly_chart(fig,use_container_width=True)
 
-        with tab1:
+        fig = px.pie(api_df,names="APIs",values="TPS")
+        st.plotly_chart(fig,use_container_width=True)
 
-            fig = px.bar(api_df,x="APIs",y="95% Line",color="95% Line")
-            st.plotly_chart(fig,use_container_width=True)
-
-        with tab2:
-
-            st.dataframe(api_df,use_container_width=True)
-
-        with tab3:
-
-            if len(api_files)>1:
-
-                prev_api = pd.read_csv(os.path.join(folder,api_files[-2]))
-
-                rows=[]
-
-                for i,row in api_df.iterrows():
-
-                    api=row["APIs"]
-
-                    prev_row=prev_api[prev_api["APIs"]==api]
-
-                    if not prev_row.empty:
-
-                        prev=prev_row.iloc[0]["95% Line"]
-                        curr=row["95% Line"]
-
-                        rows.append({
-                            "API":api,
-                            "Previous p95":prev,
-                            "Current p95":curr,
-                            "Change %":regression(curr,prev)
-                        })
-
-                reg_df=pd.DataFrame(rows)
-
-                fig=px.bar(reg_df,x="API",y="Change %")
-                st.plotly_chart(fig,use_container_width=True)
-
-                st.dataframe(reg_df,use_container_width=True)
-
-    # ---------------- GraphQL ---------------- #
+        fig = px.scatter(api_df,x="Average",y="95% Line",size="TPS",color="APIs")
+        st.plotly_chart(fig,use_container_width=True)
 
     with tabs[1]:
 
-        tab1,tab2,tab3 = st.tabs(["Charts","Data","Regression"])
-
-        with tab1:
-
-            fig=px.bar(graphql_df,x="GraphQL (BFF)",y="95% Line")
-            st.plotly_chart(fig,use_container_width=True)
-
-        with tab2:
-
-            st.dataframe(graphql_df,use_container_width=True)
-
-        with tab3:
-
-            if len(graphql_files)>1:
-
-                prev=pd.read_csv(os.path.join(folder,graphql_files[-2]))
-
-                rows=[]
-
-                for i,row in graphql_df.iterrows():
-
-                    q=row["GraphQL (BFF)"]
-
-                    prev_row=prev[prev["GraphQL (BFF)"]==q]
-
-                    if not prev_row.empty:
-
-                        prev_val=prev_row.iloc[0]["95% Line"]
-                        curr=row["95% Line"]
-
-                        rows.append({
-                            "Query":q,
-                            "Previous p95":prev_val,
-                            "Current p95":curr,
-                            "Change %":regression(curr,prev_val)
-                        })
-
-                reg_df=pd.DataFrame(rows)
-
-                fig=px.bar(reg_df,x="Query",y="Change %")
-                st.plotly_chart(fig,use_container_width=True)
-
-                st.dataframe(reg_df,use_container_width=True)
-
-    # ---------------- FRONTEND ---------------- #
+        st.dataframe(api_df,use_container_width=True)
 
     with tabs[2]:
 
-        tab1,tab2,tab3 = st.tabs(["Charts","Data","Regression"])
+        if len(api_files) > 1:
 
-        with tab1:
+            prev_api = pd.read_csv(os.path.join(folder,api_files[-2]))
 
-            c1,c2,c3,c4 = st.columns(4)
+            rows=[]
 
-            for i,row in ui_df.iterrows():
+            for i,row in api_df.iterrows():
 
-                if i==0: c1.plotly_chart(gauge(row["Pages"],row["Performance Score"]),use_container_width=True)
-                if i==1: c2.plotly_chart(gauge(row["Pages"],row["Performance Score"]),use_container_width=True)
-                if i==2: c3.plotly_chart(gauge(row["Pages"],row["Performance Score"]),use_container_width=True)
-                if i==3: c4.plotly_chart(gauge(row["Pages"],row["Performance Score"]),use_container_width=True)
+                api=row["APIs"]
 
-        with tab2:
+                prev_row=prev_api[prev_api["APIs"]==api]
 
-            st.dataframe(ui_df,use_container_width=True)
+                if not prev_row.empty:
 
-        with tab3:
+                    prev=prev_row.iloc[0]["95% Line"]
+                    curr=row["95% Line"]
 
-            if len(ui_files)>1:
+                    rows.append({
+                        "API":api,
+                        "Previous p95":prev,
+                        "Current p95":curr,
+                        "Change %":regression(curr,prev)
+                    })
 
-                prev=pd.read_csv(os.path.join(folder,ui_files[-2]))
+            reg_df=pd.DataFrame(rows)
 
-                rows=[]
+            st.dataframe(reg_df,use_container_width=True)
 
-                for i,row in ui_df.iterrows():
+# =====================================================
+# GRAPHQL PAGE
+# =====================================================
 
-                    page=row["Pages"]
+elif page == "GraphQL Performance":
 
-                    prev_row=prev[prev["Pages"]==page]
+    st.header("GraphQL Performance")
 
-                    if not prev_row.empty:
+    tabs = st.tabs(["Charts","Data","Regression"])
 
-                        prev_val=prev_row.iloc[0]["Performance Score"]
-                        curr=row["Performance Score"]
+    with tabs[0]:
 
-                        rows.append({
-                            "Page":page,
-                            "Previous Score":prev_val,
-                            "Current Score":curr,
-                            "Change":curr-prev_val
-                        })
+        fig = px.bar(graphql_df,x="GraphQL (BFF)",y="95% Line")
+        st.plotly_chart(fig,use_container_width=True)
 
-                reg_df=pd.DataFrame(rows)
+        radar = go.Figure()
 
-                st.dataframe(reg_df,use_container_width=True)
+        for i,row in graphql_df.iterrows():
+
+            radar.add_trace(go.Scatterpolar(
+                r=[row["Average"],row["95% Line"],row["99% Line"]],
+                theta=["Average","p95","p99"],
+                fill='toself',
+                name=row["GraphQL (BFF)"]
+            ))
+
+        st.plotly_chart(radar,use_container_width=True)
+
+    with tabs[1]:
+
+        st.dataframe(graphql_df,use_container_width=True)
+
+    with tabs[2]:
+
+        if len(graphql_files) > 1:
+
+            prev = pd.read_csv(os.path.join(folder,graphql_files[-2]))
+
+            rows=[]
+
+            for i,row in graphql_df.iterrows():
+
+                q=row["GraphQL (BFF)"]
+
+                prev_row=prev[prev["GraphQL (BFF)"]==q]
+
+                if not prev_row.empty:
+
+                    prev_val=prev_row.iloc[0]["95% Line"]
+                    curr=row["95% Line"]
+
+                    rows.append({
+                        "Query":q,
+                        "Previous p95":prev_val,
+                        "Current p95":curr,
+                        "Change %":regression(curr,prev_val)
+                    })
+
+            reg_df=pd.DataFrame(rows)
+
+            st.dataframe(reg_df,use_container_width=True)
+
+# =====================================================
+# FRONTEND PAGE
+# =====================================================
+
+elif page == "Frontend Metrics":
+
+    st.header("Frontend Metrics")
+
+    col1,col2,col3,col4 = st.columns(4)
+
+    for i,row in ui_df.iterrows():
+
+        if i==0: col1.plotly_chart(gauge(row["Pages"],row["Performance Score"]),use_container_width=True)
+        if i==1: col2.plotly_chart(gauge(row["Pages"],row["Performance Score"]),use_container_width=True)
+        if i==2: col3.plotly_chart(gauge(row["Pages"],row["Performance Score"]),use_container_width=True)
+        if i==3: col4.plotly_chart(gauge(row["Pages"],row["Performance Score"]),use_container_width=True)
+
+    st.subheader("Core Web Vitals")
+
+    fig = px.imshow(
+        ui_df[["FCP","LCP","TBT","CLS"]],
+        labels=dict(x="Metric",y="Page"),
+        y=ui_df["Pages"],
+        color_continuous_scale="RdYlGn_r"
+    )
+
+    st.plotly_chart(fig,use_container_width=True)
+
+    st.dataframe(ui_df,use_container_width=True)
