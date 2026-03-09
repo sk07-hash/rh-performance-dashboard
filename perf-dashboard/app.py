@@ -41,10 +41,10 @@ h1, h2, h3 {
 st.title("RH Performance Dashboard")
 
 # --------------------------------------------------
-# Reports Folder
+# Reports Folder (Robust Path)
 # --------------------------------------------------
 
-folder = "reports"
+folder = os.path.join(os.path.dirname(__file__), "reports")
 
 if not os.path.exists(folder):
     st.error("Reports folder not found in repository.")
@@ -110,7 +110,7 @@ df["Status"] = df["95% Line"].apply(
 )
 
 # --------------------------------------------------
-# API Performance Table
+# API Table
 # --------------------------------------------------
 
 st.subheader("API Performance")
@@ -121,7 +121,7 @@ st.dataframe(
 )
 
 # --------------------------------------------------
-# Chart 1 - Response Time Comparison
+# Chart 1 - Response Time
 # --------------------------------------------------
 
 st.subheader("API Response Time Comparison")
@@ -137,7 +137,7 @@ fig = px.bar(
 st.plotly_chart(fig, use_container_width=True)
 
 # --------------------------------------------------
-# Chart 2 - TPS Chart
+# Chart 2 - TPS
 # --------------------------------------------------
 
 st.subheader("API Throughput")
