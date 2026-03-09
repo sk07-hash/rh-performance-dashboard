@@ -110,7 +110,7 @@ df["Status"] = df["95% Line"].apply(
 )
 
 # --------------------------------------------------
-# API Table
+# API Performance Table
 # --------------------------------------------------
 
 st.subheader("API Performance")
@@ -121,7 +121,7 @@ st.dataframe(
 )
 
 # --------------------------------------------------
-# Chart 1 - Response Time
+# Chart 1 - Response Time Comparison
 # --------------------------------------------------
 
 st.subheader("API Response Time Comparison")
@@ -137,7 +137,7 @@ fig = px.bar(
 st.plotly_chart(fig, use_container_width=True)
 
 # --------------------------------------------------
-# Chart 2 - TPS
+# Chart 2 - TPS Chart
 # --------------------------------------------------
 
 st.subheader("API Throughput")
