@@ -9,5 +9,4 @@ S.no,GraphQL (BFF),Average,95% Line,99% Line,Max
 8,CheckoutAsGuest,2165,2119,2122,2197
 9,Shipping_Address,622,627,622,622
 10,Shipping_AVSVerifyAddresses,625,621,625,627
-
 11,Shipping_SetCartAddresses,5449,5529,5535,5459
