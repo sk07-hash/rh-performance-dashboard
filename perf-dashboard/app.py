@@ -10,11 +10,12 @@ import plotly.express as px
 st.set_page_config(page_title="RH Performance Dashboard", layout="wide")
 
 # --------------------------------------------------
-# Dark Theme Styling
+# Dark Theme
 # --------------------------------------------------
 
 st.markdown("""
 <style>
+
 .stApp {
     background-color: #0E1117;
     color: white;
@@ -29,6 +30,7 @@ h1, h2, h3 {
     border-radius: 10px;
     padding: 15px;
 }
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -39,37 +41,35 @@ h1, h2, h3 {
 st.title("RH Performance Dashboard")
 
 # --------------------------------------------------
-# Load Reports or Upload CSV
+# Reports Folder
 # --------------------------------------------------
 
 folder = "reports"
-files = []
 
-if os.path.exists(folder):
-    files = [f for f in os.listdir(folder) if f.endswith(".csv")]
+if not os.path.exists(folder):
+    st.error("Reports folder not found in repository.")
+    st.stop()
 
-# If no files, allow upload
+files = [f for f in os.listdir(folder) if f.endswith(".csv")]
+
 if len(files) == 0:
+    st.warning("No reports available.")
+    st.stop()
 
-    st.warning("No reports found. Upload a CSV performance report.")
+# --------------------------------------------------
+# Run Selection
+# --------------------------------------------------
 
-    uploaded_file = st.file_uploader(
-        "Upload Performance Report",
-        type="csv"
-    )
+files = sorted(files)
 
-    if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
-    else:
-        st.stop()
+selected_file = st.selectbox(
+    "Select Performance Run",
+    files
+)
 
-else:
+file_path = os.path.join(folder, selected_file)
 
-    selected_file = st.selectbox("Select Performance Run", files)
-
-    file_path = os.path.join(folder, selected_file)
-
-    df = pd.read_csv(file_path)
+df = pd.read_csv(file_path)
 
 # --------------------------------------------------
 # Clean Columns
@@ -110,7 +110,7 @@ df["Status"] = df["95% Line"].apply(
 )
 
 # --------------------------------------------------
-# API Performance Table
+# API Table
 # --------------------------------------------------
 
 st.subheader("API Performance")
@@ -121,7 +121,7 @@ st.dataframe(
 )
 
 # --------------------------------------------------
-# Chart 1: Response Time Comparison
+# Chart 1 - Response Time
 # --------------------------------------------------
 
 st.subheader("API Response Time Comparison")
@@ -137,7 +137,7 @@ fig = px.bar(
 st.plotly_chart(fig, use_container_width=True)
 
 # --------------------------------------------------
-# Chart 2: Throughput
+# Chart 2 - TPS
 # --------------------------------------------------
 
 st.subheader("API Throughput")
@@ -170,41 +170,37 @@ else:
     )
 
 # --------------------------------------------------
-# Trend Across Runs (only if reports folder exists)
+# Trend Across Runs
 # --------------------------------------------------
 
-if len(files) > 0:
+st.subheader("Performance Trend Across Runs")
 
-    st.subheader("Performance Trend Across Runs")
+trend_data = []
 
-    trend_data = []
+for f in files:
 
-    for f in files:
+    temp = pd.read_csv(os.path.join(folder, f))
 
-        temp = pd.read_csv(os.path.join(folder, f))
+    temp.columns = temp.columns.str.strip()
 
-        temp.columns = temp.columns.str.strip()
+    for col in numeric_cols:
+        if col in temp.columns:
+            temp[col] = pd.to_numeric(temp[col], errors="coerce")
 
-        for col in numeric_cols:
-            if col in temp.columns:
-                temp[col] = pd.to_numeric(temp[col], errors="coerce")
+    trend_data.append({
+        "Run": f,
+        "Average": temp["Average"].mean(),
+        "p95": temp["95% Line"].mean()
+    })
 
-        trend_data.append({
-            "Run": f,
-            "Average": temp["Average"].mean(),
-            "p95": temp["95% Line"].mean()
-        })
+trend_df = pd.DataFrame(trend_data)
 
-    trend_df = pd.DataFrame(trend_data)
+fig3 = px.line(
+    trend_df,
+    x="Run",
+    y=["Average","p95"],
+    markers=True,
+    title="Performance Trend"
+)
 
-    trend_df = trend_df.sort_values("Run")
-
-    fig3 = px.line(
-        trend_df,
-        x="Run",
-        y=["Average","p95"],
-        markers=True,
-        title="Performance Trend"
-    )
-
-    st.plotly_chart(fig3, use_container_width=True)
+st.plotly_chart(fig3, use_container_width=True)
