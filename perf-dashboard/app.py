@@ -3,204 +3,202 @@ import pandas as pd
 import os
 import plotly.express as px
 
-# --------------------------------------------------
-# Page Config
-# --------------------------------------------------
-
 st.set_page_config(page_title="RH Performance Dashboard", layout="wide")
 
-# --------------------------------------------------
-# Dark Theme
-# --------------------------------------------------
+# ------------------------------------------------
+# THEME
+# ------------------------------------------------
 
 st.markdown("""
 <style>
-
 .stApp {
-    background-color: #0E1117;
-    color: white;
+background-color:#0E1117;
+color:white;
 }
 
-h1, h2, h3 {
-    color: #4CAF50;
+h1,h2,h3{
+color:#4CAF50;
 }
-
-[data-testid="metric-container"] {
-    background-color: #1E1E1E;
-    border-radius: 10px;
-    padding: 15px;
-}
-
 </style>
 """, unsafe_allow_html=True)
 
-# --------------------------------------------------
-# Title
-# --------------------------------------------------
+# ------------------------------------------------
+# TITLE
+# ------------------------------------------------
 
 st.title("RH Performance Dashboard")
 
-# --------------------------------------------------
-# Reports Folder (Robust Path)
-# --------------------------------------------------
+# ------------------------------------------------
+# NAVIGATION
+# ------------------------------------------------
+
+page = st.sidebar.radio(
+"Navigation",
+["Overall Dashboard","API Performance","GraphQL Performance","Frontend Metrics"]
+)
+
+# ------------------------------------------------
+# DATA PATH
+# ------------------------------------------------
 
 folder = os.path.join(os.path.dirname(__file__), "reports")
 
-if not os.path.exists(folder):
-    st.error("Reports folder not found in repository.")
-    st.stop()
+api_file = os.path.join(folder,"API_1.csv")
+graphql_file = os.path.join(folder,"graphql_1.csv")
+ui_file = os.path.join(folder,"UI_1.csv")
 
-files = [f for f in os.listdir(folder) if f.endswith(".csv")]
+# ------------------------------------------------
+# LOAD DATA
+# ------------------------------------------------
 
-if len(files) == 0:
-    st.warning("No reports available.")
-    st.stop()
+api_df = pd.read_csv(api_file)
+graphql_df = pd.read_csv(graphql_file)
+ui_df = pd.read_csv(ui_file)
 
-# --------------------------------------------------
-# Run Selection
-# --------------------------------------------------
+# ------------------------------------------------
+# OVERALL DASHBOARD
+# ------------------------------------------------
 
-files = sorted(files)
+if page == "Overall Dashboard":
 
-selected_file = st.selectbox(
-    "Select Performance Run",
-    files
-)
+    st.header("Overall Performance Overview")
 
-file_path = os.path.join(folder, selected_file)
+    col1,col2,col3 = st.columns(3)
 
-df = pd.read_csv(file_path)
+    col1.metric("Total APIs", len(api_df))
+    col2.metric("GraphQL Queries", len(graphql_df))
+    col3.metric("Frontend Pages", len(ui_df))
 
-# --------------------------------------------------
-# Clean Columns
-# --------------------------------------------------
+    st.subheader("API Latency Overview")
 
-df.columns = df.columns.str.strip()
-
-numeric_cols = ["Average","95% Line","99% Line","Max","TPS"]
-
-for col in numeric_cols:
-    if col in df.columns:
-        df[col] = pd.to_numeric(df[col], errors="coerce")
-
-# --------------------------------------------------
-# Summary Metrics
-# --------------------------------------------------
-
-avg = df["Average"].mean()
-p95 = df["95% Line"].mean()
-p99 = df["99% Line"].mean()
-tps = df["TPS"].sum()
-
-col1, col2, col3, col4 = st.columns(4)
-
-col1.metric("Average Response Time", round(avg,2))
-col2.metric("p95 Response Time", round(p95,2))
-col3.metric("p99 Response Time", round(p99,2))
-col4.metric("Total TPS", round(tps,2))
-
-# --------------------------------------------------
-# SLA Detection
-# --------------------------------------------------
-
-sla = 500
-
-df["Status"] = df["95% Line"].apply(
-    lambda x: "OK" if x < sla else "SLOW"
-)
-
-# --------------------------------------------------
-# API Table
-# --------------------------------------------------
-
-st.subheader("API Performance")
-
-st.dataframe(
-    df[["APIs","Average","95% Line","99% Line","TPS","Status"]],
-    use_container_width=True
-)
-
-# --------------------------------------------------
-# Chart 1 - Response Time
-# --------------------------------------------------
-
-st.subheader("API Response Time Comparison")
-
-fig = px.bar(
-    df,
-    x="APIs",
-    y=["Average","95% Line","99% Line"],
-    barmode="group",
-    title="Average vs p95 vs p99"
-)
-
-st.plotly_chart(fig, use_container_width=True)
-
-# --------------------------------------------------
-# Chart 2 - TPS
-# --------------------------------------------------
-
-st.subheader("API Throughput")
-
-fig2 = px.bar(
-    df,
-    x="APIs",
-    y="TPS",
-    color="TPS",
-    title="Transactions Per Second"
-)
-
-st.plotly_chart(fig2, use_container_width=True)
-
-# --------------------------------------------------
-# SLA Violations
-# --------------------------------------------------
-
-st.subheader("SLA Violations")
-
-violations = df[df["Status"] == "SLOW"]
-
-if violations.empty:
-    st.success("No SLA violations")
-else:
-    st.warning("APIs exceeding SLA (p95 > 500ms)")
-    st.dataframe(
-        violations[["APIs","95% Line","TPS"]],
-        use_container_width=True
+    fig = px.bar(
+        api_df,
+        x="APIs",
+        y="95% Line",
+        title="API p95 Latency"
     )
 
-# --------------------------------------------------
-# Trend Across Runs
-# --------------------------------------------------
+    st.plotly_chart(fig,use_container_width=True)
 
-st.subheader("Performance Trend Across Runs")
+    st.subheader("GraphQL Latency Overview")
 
-trend_data = []
+    fig2 = px.bar(
+        graphql_df,
+        x="GraphQL (BFF)",
+        y="95% Line",
+        title="GraphQL p95 Latency"
+    )
 
-for f in files:
+    st.plotly_chart(fig2,use_container_width=True)
 
-    temp = pd.read_csv(os.path.join(folder, f))
+    st.subheader("Frontend Performance Score")
 
-    temp.columns = temp.columns.str.strip()
+    fig3 = px.bar(
+        ui_df,
+        x="Pages",
+        y="Performance Score",
+        title="Frontend Performance Score"
+    )
 
-    for col in numeric_cols:
-        if col in temp.columns:
-            temp[col] = pd.to_numeric(temp[col], errors="coerce")
+    st.plotly_chart(fig3,use_container_width=True)
 
-    trend_data.append({
-        "Run": f,
-        "Average": temp["Average"].mean(),
-        "p95": temp["95% Line"].mean()
-    })
+# ------------------------------------------------
+# API PAGE
+# ------------------------------------------------
 
-trend_df = pd.DataFrame(trend_data)
+if page == "API Performance":
 
-fig3 = px.line(
-    trend_df,
-    x="Run",
-    y=["Average","p95"],
-    markers=True,
-    title="Performance Trend"
-)
+    st.header("API Performance Metrics")
 
-st.plotly_chart(fig3, use_container_width=True)
+    avg = api_df["Average"].mean()
+    p95 = api_df["95% Line"].mean()
+    p99 = api_df["99% Line"].mean()
+
+    col1,col2,col3 = st.columns(3)
+
+    col1.metric("Average Response",round(avg,2))
+    col2.metric("p95",round(p95,2))
+    col3.metric("p99",round(p99,2))
+
+    st.dataframe(api_df)
+
+    fig = px.bar(
+        api_df,
+        x="APIs",
+        y=["Average","95% Line","99% Line"],
+        barmode="group",
+        title="API Latency Comparison"
+    )
+
+    st.plotly_chart(fig,use_container_width=True)
+
+    fig2 = px.bar(
+        api_df,
+        x="APIs",
+        y="TPS",
+        color="TPS",
+        title="API Throughput"
+    )
+
+    st.plotly_chart(fig2,use_container_width=True)
+
+# ------------------------------------------------
+# GRAPHQL PAGE
+# ------------------------------------------------
+
+if page == "GraphQL Performance":
+
+    st.header("GraphQL Performance")
+
+    avg = graphql_df["Average"].mean()
+    p95 = graphql_df["95% Line"].mean()
+
+    col1,col2 = st.columns(2)
+
+    col1.metric("Average Latency",round(avg,2))
+    col2.metric("p95",round(p95,2))
+
+    st.dataframe(graphql_df)
+
+    fig = px.bar(
+        graphql_df,
+        x="GraphQL (BFF)",
+        y=["Average","95% Line","99% Line"],
+        barmode="group",
+        title="GraphQL Query Latency"
+    )
+
+    st.plotly_chart(fig,use_container_width=True)
+
+# ------------------------------------------------
+# FRONTEND PAGE
+# ------------------------------------------------
+
+if page == "Frontend Metrics":
+
+    st.header("Frontend / Lighthouse Metrics")
+
+    avg_score = ui_df["Performance Score"].mean()
+
+    st.metric("Avg Performance Score",round(avg_score,2))
+
+    st.dataframe(ui_df)
+
+    fig = px.bar(
+        ui_df,
+        x="Pages",
+        y="Performance Score",
+        title="Performance Score by Page"
+    )
+
+    st.plotly_chart(fig,use_container_width=True)
+
+    fig2 = px.bar(
+        ui_df,
+        x="Pages",
+        y=["FCP","LCP","TBT"],
+        barmode="group",
+        title="Frontend Core Web Vitals"
+    )
+
+    st.plotly_chart(fig2,use_container_width=True)
