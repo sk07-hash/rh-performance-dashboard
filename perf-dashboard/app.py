@@ -3,19 +3,18 @@ import pandas as pd
 import os
 import plotly.express as px
 
-# --------------------------------------
+# --------------------------------------------------
 # Page Config
-# --------------------------------------
+# --------------------------------------------------
 
 st.set_page_config(page_title="RH Performance Dashboard", layout="wide")
 
-# --------------------------------------
-# Simple Dark Theme
-# --------------------------------------
+# --------------------------------------------------
+# Dark Theme Styling
+# --------------------------------------------------
 
 st.markdown("""
 <style>
-
 .stApp {
     background-color: #0E1117;
     color: white;
@@ -30,52 +29,63 @@ h1, h2, h3 {
     border-radius: 10px;
     padding: 15px;
 }
-
 </style>
 """, unsafe_allow_html=True)
 
-# --------------------------------------
+# --------------------------------------------------
 # Title
-# --------------------------------------
+# --------------------------------------------------
 
 st.title("RH Performance Dashboard")
 
-# --------------------------------------
-# Load Reports
-# --------------------------------------
+# --------------------------------------------------
+# Load Reports or Upload CSV
+# --------------------------------------------------
 
 folder = "reports"
+files = []
 
-files = [f for f in os.listdir(folder) if f.endswith(".csv")]
+if os.path.exists(folder):
+    files = [f for f in os.listdir(folder) if f.endswith(".csv")]
 
-if not files:
-    st.warning("No reports found in reports folder")
-    st.stop()
+# If no files, allow upload
+if len(files) == 0:
 
-# --------------------------------------
-# Run Selection
-# --------------------------------------
+    st.warning("No reports found. Upload a CSV performance report.")
 
-selected_file = st.selectbox("Select Performance Run", files)
+    uploaded_file = st.file_uploader(
+        "Upload Performance Report",
+        type="csv"
+    )
 
-file_path = os.path.join(folder, selected_file)
+    if uploaded_file is not None:
+        df = pd.read_csv(uploaded_file)
+    else:
+        st.stop()
 
-# --------------------------------------
-# Read CSV
-# --------------------------------------
+else:
 
-df = pd.read_csv(file_path)
+    selected_file = st.selectbox("Select Performance Run", files)
+
+    file_path = os.path.join(folder, selected_file)
+
+    df = pd.read_csv(file_path)
+
+# --------------------------------------------------
+# Clean Columns
+# --------------------------------------------------
 
 df.columns = df.columns.str.strip()
 
 numeric_cols = ["Average","95% Line","99% Line","Max","TPS"]
 
 for col in numeric_cols:
-    df[col] = pd.to_numeric(df[col], errors="coerce")
+    if col in df.columns:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
 
-# --------------------------------------
+# --------------------------------------------------
 # Summary Metrics
-# --------------------------------------
+# --------------------------------------------------
 
 avg = df["Average"].mean()
 p95 = df["95% Line"].mean()
@@ -89,9 +99,9 @@ col2.metric("p95 Response Time", round(p95,2))
 col3.metric("p99 Response Time", round(p99,2))
 col4.metric("Total TPS", round(tps,2))
 
-# --------------------------------------
+# --------------------------------------------------
 # SLA Detection
-# --------------------------------------
+# --------------------------------------------------
 
 sla = 500
 
@@ -99,9 +109,9 @@ df["Status"] = df["95% Line"].apply(
     lambda x: "OK" if x < sla else "SLOW"
 )
 
-# --------------------------------------
+# --------------------------------------------------
 # API Performance Table
-# --------------------------------------
+# --------------------------------------------------
 
 st.subheader("API Performance")
 
@@ -110,9 +120,9 @@ st.dataframe(
     use_container_width=True
 )
 
-# --------------------------------------
-# Chart 1 - Response Comparison
-# --------------------------------------
+# --------------------------------------------------
+# Chart 1: Response Time Comparison
+# --------------------------------------------------
 
 st.subheader("API Response Time Comparison")
 
@@ -126,9 +136,9 @@ fig = px.bar(
 
 st.plotly_chart(fig, use_container_width=True)
 
-# --------------------------------------
-# Chart 2 - TPS Chart
-# --------------------------------------
+# --------------------------------------------------
+# Chart 2: Throughput
+# --------------------------------------------------
 
 st.subheader("API Throughput")
 
@@ -142,9 +152,9 @@ fig2 = px.bar(
 
 st.plotly_chart(fig2, use_container_width=True)
 
-# --------------------------------------
+# --------------------------------------------------
 # SLA Violations
-# --------------------------------------
+# --------------------------------------------------
 
 st.subheader("SLA Violations")
 
@@ -154,41 +164,47 @@ if violations.empty:
     st.success("No SLA violations")
 else:
     st.warning("APIs exceeding SLA (p95 > 500ms)")
-    st.dataframe(violations[["APIs","95% Line","TPS"]])
+    st.dataframe(
+        violations[["APIs","95% Line","TPS"]],
+        use_container_width=True
+    )
 
-# --------------------------------------
-# Trend Across Runs
-# --------------------------------------
+# --------------------------------------------------
+# Trend Across Runs (only if reports folder exists)
+# --------------------------------------------------
 
-st.subheader("Performance Trend Across Runs")
+if len(files) > 0:
 
-trend_data = []
+    st.subheader("Performance Trend Across Runs")
 
-for f in files:
+    trend_data = []
 
-    temp = pd.read_csv(os.path.join(folder, f))
+    for f in files:
 
-    temp.columns = temp.columns.str.strip()
+        temp = pd.read_csv(os.path.join(folder, f))
 
-    for col in numeric_cols:
-        temp[col] = pd.to_numeric(temp[col], errors="coerce")
+        temp.columns = temp.columns.str.strip()
 
-    trend_data.append({
-        "Run": f,
-        "Average": temp["Average"].mean(),
-        "p95": temp["95% Line"].mean()
-    })
+        for col in numeric_cols:
+            if col in temp.columns:
+                temp[col] = pd.to_numeric(temp[col], errors="coerce")
 
-trend_df = pd.DataFrame(trend_data)
+        trend_data.append({
+            "Run": f,
+            "Average": temp["Average"].mean(),
+            "p95": temp["95% Line"].mean()
+        })
 
-trend_df = trend_df.sort_values("Run")
+    trend_df = pd.DataFrame(trend_data)
 
-fig3 = px.line(
-    trend_df,
-    x="Run",
-    y=["Average","p95"],
-    markers=True,
-    title="Performance Trend"
-)
+    trend_df = trend_df.sort_values("Run")
 
-st.plotly_chart(fig3, use_container_width=True)
+    fig3 = px.line(
+        trend_df,
+        x="Run",
+        y=["Average","p95"],
+        markers=True,
+        title="Performance Trend"
+    )
+
+    st.plotly_chart(fig3, use_container_width=True)
