@@ -2,16 +2,18 @@ import streamlit as st
 import pandas as pd
 import os
 import plotly.express as px
+import plotly.graph_objects as go
 
 st.set_page_config(page_title="RH Performance Dashboard", layout="wide")
 
-# ------------------------------------------------
+# -------------------------------------------------------
 # THEME
-# ------------------------------------------------
+# -------------------------------------------------------
 
 st.markdown("""
 <style>
-.stApp {
+
+.stApp{
 background-color:#0E1117;
 color:white;
 }
@@ -19,27 +21,34 @@ color:white;
 h1,h2,h3{
 color:#4CAF50;
 }
+
+[data-testid="metric-container"]{
+background-color:#1E1E1E;
+padding:15px;
+border-radius:10px;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
-# ------------------------------------------------
+# -------------------------------------------------------
 # TITLE
-# ------------------------------------------------
+# -------------------------------------------------------
 
 st.title("RH Performance Dashboard")
 
-# ------------------------------------------------
+# -------------------------------------------------------
 # NAVIGATION
-# ------------------------------------------------
+# -------------------------------------------------------
 
 page = st.sidebar.radio(
 "Navigation",
 ["Overall Dashboard","API Performance","GraphQL Performance","Frontend Metrics"]
 )
 
-# ------------------------------------------------
+# -------------------------------------------------------
 # DATA PATH
-# ------------------------------------------------
+# -------------------------------------------------------
 
 folder = os.path.join(os.path.dirname(__file__), "reports")
 
@@ -47,158 +56,219 @@ api_file = os.path.join(folder,"API_1.csv")
 graphql_file = os.path.join(folder,"graphql_1.csv")
 ui_file = os.path.join(folder,"UI_1.csv")
 
-# ------------------------------------------------
-# LOAD DATA
-# ------------------------------------------------
-
 api_df = pd.read_csv(api_file)
 graphql_df = pd.read_csv(graphql_file)
 ui_df = pd.read_csv(ui_file)
 
-# ------------------------------------------------
+api_df.columns = api_df.columns.str.strip()
+graphql_df.columns = graphql_df.columns.str.strip()
+ui_df.columns = ui_df.columns.str.strip()
+
+# -------------------------------------------------------
 # OVERALL DASHBOARD
-# ------------------------------------------------
+# -------------------------------------------------------
 
 if page == "Overall Dashboard":
 
-    st.header("Overall Performance Overview")
+    st.header("System Performance Overview")
 
-    col1,col2,col3 = st.columns(3)
+    col1,col2,col3,col4 = st.columns(4)
 
     col1.metric("Total APIs", len(api_df))
     col2.metric("GraphQL Queries", len(graphql_df))
     col3.metric("Frontend Pages", len(ui_df))
+    col4.metric("Avg API p95", round(api_df["95% Line"].mean(),2))
 
-    st.subheader("API Latency Overview")
+    st.divider()
 
-    fig = px.bar(
-        api_df,
-        x="APIs",
-        y="95% Line",
-        title="API p95 Latency"
-    )
+    c1,c2 = st.columns(2)
 
-    st.plotly_chart(fig,use_container_width=True)
+    with c1:
 
-    st.subheader("GraphQL Latency Overview")
+        st.subheader("API Latency Overview")
 
-    fig2 = px.bar(
-        graphql_df,
-        x="GraphQL (BFF)",
-        y="95% Line",
-        title="GraphQL p95 Latency"
-    )
+        fig = px.bar(
+            api_df,
+            x="APIs",
+            y="95% Line",
+            color="95% Line",
+            color_continuous_scale="teal"
+        )
 
-    st.plotly_chart(fig2,use_container_width=True)
+        st.plotly_chart(fig,use_container_width=True)
+
+    with c2:
+
+        st.subheader("GraphQL Latency")
+
+        fig = px.bar(
+            graphql_df,
+            x="GraphQL (BFF)",
+            y="95% Line",
+            color="95% Line",
+            color_continuous_scale="oranges"
+        )
+
+        st.plotly_chart(fig,use_container_width=True)
 
     st.subheader("Frontend Performance Score")
 
-    fig3 = px.bar(
-        ui_df,
-        x="Pages",
-        y="Performance Score",
-        title="Frontend Performance Score"
-    )
+    score = ui_df["Performance Score"].mean()
 
-    st.plotly_chart(fig3,use_container_width=True)
+    gauge = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=score,
+        title={'text': "Average Performance Score"},
+        gauge={'axis': {'range': [0,100]}}
+    ))
 
-# ------------------------------------------------
+    st.plotly_chart(gauge,use_container_width=True)
+
+# -------------------------------------------------------
 # API PAGE
-# ------------------------------------------------
+# -------------------------------------------------------
 
 if page == "API Performance":
 
     st.header("API Performance Metrics")
 
-    avg = api_df["Average"].mean()
-    p95 = api_df["95% Line"].mean()
-    p99 = api_df["99% Line"].mean()
+    tab1,tab2 = st.tabs(["Charts","Data"])
 
-    col1,col2,col3 = st.columns(3)
+    with tab1:
 
-    col1.metric("Average Response",round(avg,2))
-    col2.metric("p95",round(p95,2))
-    col3.metric("p99",round(p99,2))
+        c1,c2 = st.columns(2)
 
-    st.dataframe(api_df)
+        with c1:
 
-    fig = px.bar(
-        api_df,
-        x="APIs",
-        y=["Average","95% Line","99% Line"],
-        barmode="group",
-        title="API Latency Comparison"
-    )
+            st.subheader("Latency Comparison")
 
-    st.plotly_chart(fig,use_container_width=True)
+            fig = px.bar(
+                api_df,
+                x="APIs",
+                y=["Average","95% Line","99% Line"],
+                barmode="group",
+                color_discrete_sequence=["#00C49F","#FF8042","#8884D8"]
+            )
 
-    fig2 = px.bar(
-        api_df,
-        x="APIs",
-        y="TPS",
-        color="TPS",
-        title="API Throughput"
-    )
+            st.plotly_chart(fig,use_container_width=True)
 
-    st.plotly_chart(fig2,use_container_width=True)
+        with c2:
 
-# ------------------------------------------------
+            st.subheader("TPS Distribution")
+
+            fig = px.pie(
+                api_df,
+                names="APIs",
+                values="TPS"
+            )
+
+            st.plotly_chart(fig,use_container_width=True)
+
+        st.subheader("Latency Scatter")
+
+        fig = px.scatter(
+            api_df,
+            x="Average",
+            y="95% Line",
+            size="TPS",
+            color="APIs"
+        )
+
+        st.plotly_chart(fig,use_container_width=True)
+
+    with tab2:
+
+        st.dataframe(api_df,use_container_width=True)
+
+# -------------------------------------------------------
 # GRAPHQL PAGE
-# ------------------------------------------------
+# -------------------------------------------------------
 
 if page == "GraphQL Performance":
 
     st.header("GraphQL Performance")
 
-    avg = graphql_df["Average"].mean()
-    p95 = graphql_df["95% Line"].mean()
+    tab1,tab2 = st.tabs(["Charts","Data"])
 
-    col1,col2 = st.columns(2)
+    with tab1:
 
-    col1.metric("Average Latency",round(avg,2))
-    col2.metric("p95",round(p95,2))
+        fig = go.Figure()
 
-    st.dataframe(graphql_df)
+        for i,row in graphql_df.iterrows():
 
-    fig = px.bar(
-        graphql_df,
-        x="GraphQL (BFF)",
-        y=["Average","95% Line","99% Line"],
-        barmode="group",
-        title="GraphQL Query Latency"
-    )
+            fig.add_trace(go.Scatterpolar(
+                r=[row["Average"],row["95% Line"],row["99% Line"]],
+                theta=["Average","p95","p99"],
+                fill='toself',
+                name=row["GraphQL (BFF)"]
+            ))
 
-    st.plotly_chart(fig,use_container_width=True)
+        fig.update_layout(
+            polar=dict(radialaxis=dict(visible=True)),
+            title="GraphQL Latency Radar"
+        )
 
-# ------------------------------------------------
+        st.plotly_chart(fig,use_container_width=True)
+
+        fig2 = px.bar(
+            graphql_df,
+            x="GraphQL (BFF)",
+            y="95% Line",
+            color="95% Line",
+            color_continuous_scale="reds"
+        )
+
+        st.plotly_chart(fig2,use_container_width=True)
+
+    with tab2:
+
+        st.dataframe(graphql_df,use_container_width=True)
+
+# -------------------------------------------------------
 # FRONTEND PAGE
-# ------------------------------------------------
+# -------------------------------------------------------
 
 if page == "Frontend Metrics":
 
-    st.header("Frontend / Lighthouse Metrics")
+    st.header("Frontend Performance (Lighthouse)")
 
-    avg_score = ui_df["Performance Score"].mean()
+    tab1,tab2 = st.tabs(["Charts","Data"])
 
-    st.metric("Avg Performance Score",round(avg_score,2))
+    with tab1:
 
-    st.dataframe(ui_df)
+        score = ui_df["Performance Score"].mean()
 
-    fig = px.bar(
-        ui_df,
-        x="Pages",
-        y="Performance Score",
-        title="Performance Score by Page"
-    )
+        gauge = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=score,
+            title={'text': "Avg Performance Score"},
+            gauge={'axis': {'range': [0,100]}}
+        ))
 
-    st.plotly_chart(fig,use_container_width=True)
+        st.plotly_chart(gauge,use_container_width=True)
 
-    fig2 = px.bar(
-        ui_df,
-        x="Pages",
-        y=["FCP","LCP","TBT"],
-        barmode="group",
-        title="Frontend Core Web Vitals"
-    )
+        st.subheader("Core Web Vitals")
 
-    st.plotly_chart(fig2,use_container_width=True)
+        fig = px.imshow(
+            ui_df[["FCP","LCP","TBT","CLS"]],
+            labels=dict(x="Metric",y="Page"),
+            y=ui_df["Pages"],
+            color_continuous_scale="RdYlGn_r"
+        )
+
+        st.plotly_chart(fig,use_container_width=True)
+
+        st.subheader("Page Performance")
+
+        fig2 = px.bar(
+            ui_df,
+            x="Pages",
+            y="Performance Score",
+            color="Performance Score"
+        )
+
+        st.plotly_chart(fig2,use_container_width=True)
+
+    with tab2:
+
+        st.dataframe(ui_df,use_container_width=True)
