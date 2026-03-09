@@ -1,13 +1,12 @@
 S.no,GraphQL (BFF),Average,95% Line,99% Line,Max
-1,CG,1055,1039,1035,1202
-2,PG Search - 72 Items (02/11),1624,1629,1632,1618
-3,Search Load all,1622,1635,1629,1625
-4,PDP_Product,2048,2048,2051,2046
-5,PDP_LineItemSkuQuery,2251,2269,2265,2415
-6,Add to Cart [10 items],2201,2153,2149,2120
-7,View Cart_Shopping Cart,921,922,925,922
-8,CheckoutAsGuest,2165,2119,2122,2197
-9,Shipping_Address,622,627,622,622
-10,Shipping_AVSVerifyAddresses,625,621,625,627
-
-11,Shipping_SetCartAddresses,5449,5529,5535,5459
+1,CG,1055,1045,1035,1202
+2,PG Search - 72 Items (02/11),1624,1639,1632,1618
+3,Search Load all,1622,1637,1629,1625
+4,PDP_Product,2048,2051,2051,2046
+5,PDP_LineItemSkuQuery,2251,2272,2265,2415
+6,Add to Cart [10 items],2201,2160,2149,2120
+7,View Cart_Shopping Cart,921,928,925,922
+8,CheckoutAsGuest,2165,2115,2122,2197
+9,Shipping_Address,622,629,622,622
+10,Shipping_AVSVerifyAddresses,625,625,625,627
+11,Shipping_SetCartAddresses,5449,5549,5535,5459
